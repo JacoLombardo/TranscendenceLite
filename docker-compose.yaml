@@ -1,0 +1,91 @@
+services:
+  backend:
+    image: transcendence-backend:latest
+    secrets:
+      - tls_key
+      - tls_cert
+      - github_client_id
+      - github_client_secret
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        - CACHEBUST=1
+    container_name: transcendence-backend
+    expose:
+      - "4000"
+    networks:
+      - internal
+    env_file:
+      - ./backend/.env
+    environment:
+      - CHOKIDAR_USEPOLLING=1 # Enable file watching in containers on macOS
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/transcendence
+      - PGSSLMODE=disable
+    volumes:
+      # Mount only source for live reload; keep node_modules inside the image (no npm volume)
+      - ./backend/src:/app/src
+
+    depends_on:
+      - db
+
+    command: [ "npm", "run", "dev" ] # Run in watch mode (overrides Dockerfile CMD)
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    container_name: transcendence-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: transcendence
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - internal
+    restart: unless-stopped
+
+  frontend:
+    image: transcendence-frontend:latest
+    secrets:
+      - tls_key
+      - tls_cert
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - CACHEBUST=1
+    ports:
+      - "5173:5173"
+    networks:
+      - internal
+    env_file:
+      - ./frontend/.env
+    environment:
+      - CHOKIDAR_USEPOLLING=1 # Enable file watching in containers on macOS
+    volumes:
+      # Mount only frontend sources and index for Vite HMR; keep node_modules inside the image
+      - ./frontend/src:/app/src
+      - ./frontend/index.html:/app/index.html
+      - ./frontend/tsconfig.json:/app/tsconfig.json
+      - ./frontend/vite.config.ts:/app/vite.config.ts
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+secrets:
+  tls_key:
+    file: ./certs/key.pem
+  tls_cert:
+    file: ./certs/cert.pem
+  github_client_id:
+    file: ./certs/github_client_id.txt
+  github_client_secret:
+    file: ./certs/github_client_secret.txt
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  postgres-data:

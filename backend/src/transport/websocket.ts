@@ -1,0 +1,363 @@
+import { RawData } from "ws";
+import type { FastifyInstance } from "fastify";
+import { buildPayload } from "./broadcaster.js";
+import { getOrCreateSingleGame } from "../managers/singleGameManager.js";
+import { getOrCreateTournament, addPlayerToTournament } from "../managers/tournamentManager.js";
+import { addPlayerToMatch, checkMatchFull, forfeitMatch, startMatch } from "../managers/matchManager.js";
+import { Match } from "../types/match.js";
+import {
+	addGameToUser,
+	addUserOnline,
+	isUserAlreadyInGame,
+	removeGameFromUser,
+	removeUserWS,
+} from "../user/online.js";
+import { handleChatMessages, handleGameMessages } from "./messages.js";
+import { authenticateWebSocket } from "../auth/verify.js";
+import { isValidInput } from "../utils/sanitize.js";
+import { resetMatchState } from "../game/state.js";
+
+export function registerWebsocketRoute(fastify: FastifyInstance) {
+	// Register user socket
+	fastify.get("/api/user/ws", { websocket: true }, async (socket: any, request: any) => {
+		const payload = authenticateWebSocket(request, socket);
+		if (!payload) return;
+
+		socket.username = payload.username;
+		const user = await addUserOnline(payload.username, socket);
+		if (!user) {
+			socket.close(1011, "User not in database");
+			return;
+		}
+
+		console.log(`[userWS] Websocket for User: ${payload.username} registered`);
+
+		// Client responds to ping with pong automatically
+		socket.on("pong", () => {
+			user.connections.set(socket, true);
+		});
+
+		socket.on("message", (raw: RawData) => {
+			handleChatMessages(raw);
+		});
+
+		socket.on("error", (error: any) => {
+			console.error(`[userWS] Error for ${socket.username} on socket ${socket}:`, error);
+		});
+
+		socket.on("close", () => {
+			removeUserWS(socket.username, socket);
+		});
+	});
+
+	// Register/connect to a local single game
+	fastify.get<{ Params: { id: string } }>(
+		"/api/local-single-game/:id/ws",
+		{ websocket: true },
+		(socket: any, request: any) => {
+			const payload = authenticateWebSocket(request, socket);
+			if (!payload) return;
+
+			const singleGameId = request.params.id;
+			if (!singleGameId) {
+				socket.close(1011, "singleGameId is missing");
+				return;
+			}
+
+			// Check user is not already connected to another game socket
+			if (isUserAlreadyInGame(payload.username)) {
+				console.log("[gameWS] User is already in a game");
+				socket.close(1011, "user is already playing");
+				return;
+			}
+
+			console.log(
+				`[gameWS] Websocket for LocalSingleGame: ${singleGameId} and User: ${payload.username} registered`
+			);
+
+			socket.username = payload.username;
+			const singleGame = getOrCreateSingleGame(singleGameId, "local", payload.username);
+			const match: Match = singleGame.match;
+
+			resetMatchState(match);
+
+			// Add the current game info to the userOnline struct
+			addGameToUser(socket.username, socket, singleGame.id);
+
+			// Since it's a local game add user and start the game
+			addPlayerToMatch(match, socket.username, socket);
+			match.clients.add(socket);
+			startMatch(match);
+
+			socket.send(buildPayload("state", match.state));
+
+			socket.on("message", (raw: RawData) => handleGameMessages(raw, match));
+
+			socket.on("close", () => {
+				match.clients.delete(socket);
+				// Forfeit match
+				forfeitMatch(match, socket.username);
+
+				// Remove the current game from the userOnline struct
+				removeGameFromUser(socket.username);
+			});
+			socket.on("error", (err: any) => console.error(`[gameWS] match=${match.id}`, err));
+		}
+	);
+
+	// Register/connect to a single game (not local)
+	fastify.get<{ Params: { id: string } }>(
+		"/api/single-game/:id/ws",
+		{ websocket: true },
+		(socket: any, request: any) => {
+			const payload = authenticateWebSocket(request, socket);
+			if (!payload) return;
+
+			const singleGameId = request.params.id;
+			if (!singleGameId) {
+				socket.close(1011, "singleGameId is missing");
+				return;
+			}
+
+			// Check user is not already connected to another game socket
+			if (isUserAlreadyInGame(payload.username)) {
+				console.log("[gameWS] User is already in a game");
+				socket.close(1011, "user is already playing");
+				return;
+			}
+
+			if (singleGameId === "default")
+				console.log(`[gameWS] Websocket for SingleGame: ${singleGameId} and User: ${payload.username} registered`);
+			else console.log(`[gameWS] Websocket for SingleGame: ${singleGameId} and User: ${payload.username} connected`);
+
+			socket.username = payload.username;
+
+			const singleGame = getOrCreateSingleGame(singleGameId, "remote", payload.username);
+			const match: Match = singleGame.match;
+
+			if (checkMatchFull(match)) {
+				console.log("[gameWS] Match already full");
+				socket.close(1008, "Match is already full");
+				return;
+			}
+
+			resetMatchState(match);
+
+			//  add socket to clients BEFORE addPlayerToMatch so it receives countdown messages
+			// reason is that addPlayerToMatch triggers startGameCountdown as soon as the second player joins but the new socket was not in match.clients yet
+			// so it missed the entire countdown process and stayed in waiting for opponent mode
+			match.clients.add(socket);
+
+			// determine which side this player will be assigned to before calling addPlayerToMatch
+			const playerSide = !match.players.left ? "left" : "right";
+
+			socket.send(
+				buildPayload("match-assigned", {
+					matchId: match.id,
+					playerSide: playerSide,
+				})
+			);
+
+			socket.send(buildPayload("state", match.state));
+
+			// if the match is not full yet, send "waiting" message to all clients
+			if (!checkMatchFull(match)) {
+				for (const client of match.clients) {
+					client.send(buildPayload("waiting", undefined));
+				}
+			}
+
+			// Add the current game info to the userOnline struct
+			addGameToUser(socket.username, socket, singleGame.id);
+
+			// add player to match (this may trigger countdown if match becomes full)
+			addPlayerToMatch(match, socket.username, socket);
+
+			socket.on("message", (raw: RawData) => handleGameMessages(raw, match));
+
+			socket.on("close", () => {
+				match.clients.delete(socket);
+				// Forfeit match for all players
+				forfeitMatch(match, socket.username);
+
+				// Remove the current game from the userOnline struct
+				removeGameFromUser(socket.username);
+			});
+			socket.on("error", (err: any) => console.error(`[gameWS] match=${match.id}`, err));
+		}
+	);
+
+	// Register/connect to a tournament
+	fastify.get<{ Params: { id: string }; Querystring: { name?: string; size?: number } }>(
+		"/api/tournament/:id/ws",
+		{ websocket: true },
+		async (socket: any, request: any) => {
+			const payload = authenticateWebSocket(request, socket);
+			if (!payload) return;
+
+			const tournamentId = request.params.id;
+			const tournamentName = request.query.name;
+			const tournamentSize = request.query.size;
+			const userDisplayName = request.query.displayName;
+			if (!tournamentId) {
+				socket.close(1011, "Tournament id missing");
+				return;
+			} else if (
+				(tournamentName && !isValidInput(tournamentName)) ||
+				(userDisplayName && !isValidInput(userDisplayName))
+			) {
+				console.log("[gameWS] Invalid tournament name or display name");
+				socket.close(1011, "Invalid tournament name or display name");
+				return;
+			}
+
+			// Check user is not already connected to another game socket
+			if (isUserAlreadyInGame(payload.username)) {
+				console.log("[gameWS] User is already in a game");
+				socket.close(1011, "user is already playing");
+				return;
+			}
+
+			if (tournamentId === "default")
+				console.log(`[gameWS] Websocket for Tournament: ${tournamentId} and User: ${payload.username} registered`);
+			else console.log(`[gameWS] Websocket for Tournament: ${tournamentId} and User: ${payload.username} connected`);
+			socket.username = payload.username;
+
+			//const tournament = getOrCreateTournament(tournamentId, tournamentName, tournamentSize, payload.username);
+			////  added this part to ensure that in the second round of the tournament the sides are correctly assigned to the players
+			//// Find which match this player will join and determine their side BEFORE adding them
+			//let playerSide: "left" | "right" = "left";
+			//const matches = tournament.matches.get(tournament.state.round);
+			//// scan the matches to find one with an open slot and then determine the side the player will be assigned to
+			//if (matches) {
+			//	for (const m of matches) {
+			//		if (!m.players.left || !m.players.right) {
+			//			// this is the match the player will join
+			//			playerSide = !m.players.left ? "left" : "right";
+			//			console.log(`[WS] Player ${payload.username} will be assigned to match ${m.id} as ${playerSide}`);
+			//			break;
+			//		}
+			//	}
+			//}
+			const tournament = await getOrCreateTournament({
+				id: tournamentId,
+				name: tournamentName,
+				size: tournamentSize,
+				creator: payload.username,
+			});
+
+			//  use custom display name from query parameter if provided, otherwise use username
+			const playerDisplayName = userDisplayName || socket.username;
+
+			// Add the current game info to the userOnline struct
+			addGameToUser(socket.username, socket, tournament.id);
+
+			const match = addPlayerToTournament({
+				tournament: tournament,
+				playerId: socket.username,
+				playerDisplayName: playerDisplayName,
+				socket: socket,
+			});
+			if (match) {
+				resetMatchState(match);
+				match.clients.add(socket);
+				//  store reference for Round 2 reassignment so we can pick a socket up after a match is over and drop it into the next match
+				socket.currentTournamentMatch = match; // track which match the socket belongs to
+				socket.tournamentId = tournament.id; // tracks the tournament this socket belongs to
+
+				//  determine playerSide AFTER adding player (to get the actual assigned side)
+				const playerSide: "left" | "right" | null =
+					match.players.left?.username === socket.username
+						? "left"
+						: match.players.right?.username === socket.username
+						? "right"
+						: null;
+
+				//  broadcast match-assigned for ALL matches in the current round to ALL tournament participants
+				// This ensures all players see the tournament tree being populated
+				const roundMatches = tournament.matches.get(tournament.state.round);
+				if (roundMatches) {
+					const sentSockets = new Set();
+
+					// Build and send match-assigned for each match in the round
+					for (let i = 0; i < roundMatches.length; i++) {
+						const currentMatch = roundMatches[i];
+
+						//  Build base payload without playerSide (will be customized per recipient)
+						const basePayload = {
+							matchId: currentMatch.id,
+							tournamentMatchType: currentMatch.tournament?.type,
+							round: tournament.state.round,
+							matchIndex: i, //  index in the roundMatches array (0=first match, 1=second match)
+							leftPlayer: {
+								username: currentMatch.players.left?.username || null,
+								displayName:
+									currentMatch.players.left?.displayName || currentMatch.players.left?.username || null,
+							},
+							rightPlayer: {
+								username: currentMatch.players.right?.username || null,
+								displayName:
+									currentMatch.players.right?.displayName || currentMatch.players.right?.username || null,
+							},
+						};
+
+						// Send to all tournament participants with their individual playerSide
+						for (const player of tournament.players) {
+							if (player.socket && player.socket.readyState === 1) {
+								// WebSocket.OPEN
+								//  Determine playerSide for THIS specific player for THIS specific match
+								// needed for broadcasting match-assigned messages to all players
+								const recipientPlayerSide: "left" | "right" | null =
+									currentMatch.players.left?.username === player.username
+										? "left"
+										: currentMatch.players.right?.username === player.username
+										? "right"
+										: null;
+
+								const matchAssignedPayload = buildPayload("match-assigned", {
+									...basePayload,
+									playerSide: recipientPlayerSide,
+								} as any);
+
+								player.socket.send(matchAssignedPayload);
+								sentSockets.add(player.socket);
+							}
+						}
+						// Also send to current socket if not already in tournament.players (e.g., round 2 players)
+						if (!sentSockets.has(socket) && socket.readyState === 1) {
+							const matchAssignedPayload = buildPayload("match-assigned", {
+								...basePayload,
+								playerSide: playerSide, // Use the playerSide we determined for the joining player
+							} as any);
+							socket.send(matchAssignedPayload);
+						}
+					}
+				}
+
+				socket.send(buildPayload("state", match.state));
+				//  for tournaments using socket.currentMatch which will be updated between rounds
+				// wrapper ensures every incoming message (player input, reset, etc.) is routed to whichever match the socket is currently assigned to
+				socket.on("message", (raw: RawData) => {
+					const currentMatch = socket.currentTournamentMatch || match;
+					handleGameMessages(raw, currentMatch);
+				});
+
+				socket.on("close", () => {
+					const currentMatch = socket.currentTournamentMatch || match;
+					currentMatch.clients.delete(socket);
+					forfeitMatch(currentMatch, socket.username);
+
+					// Remove the current game from the userOnline struct
+					removeGameFromUser(socket.username);
+				});
+				socket.on("error", (err: any) => {
+					const currentMatch = socket.currentTournamentMatch || match;
+					console.error(`[ws error] match=${currentMatch?.id}`, err);
+				});
+			} else {
+				console.log(`[gameWS] Tournament ${tournament.id} is already full`);
+				socket.close(1008, "Tournament is already full");
+			}
+		}
+	);
+}

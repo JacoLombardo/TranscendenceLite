@@ -1,0 +1,21 @@
+// Global variables
+
+import { chatHistory } from "../chat/types";
+
+export const generalData = {
+  onlineUsers: null as string[] | null,
+  allUsers: null as string[] | null,
+};
+
+export const userData = {
+	username: null as string | null,
+	userSock: null as WebSocket | null,
+	gameSock: null as WebSocket | null,
+	chatHistory: null as chatHistory | null,
+	friends: [] as string[],
+	blockedUsers: [] as string[],
+	blockedByUsers: [] as string[],
+	activePrivateChat: "Global Chat" as string
+};
+
+//export const blockedUsers = new Map<string, string[]>();
