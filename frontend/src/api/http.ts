@@ -6,6 +6,7 @@ import { userData } from "../config/constants";
 import { API_BASE } from "../config/endpoints";
 import type { GameConstants } from "../constants";
 
+// Fetch gameplay constants for client sizing.
 export async function fetchGameConstants(): Promise<GameConstants> {
 	const res = await fetch(`${API_BASE}/api/constants`, {
 		credentials: "omit",
@@ -16,6 +17,7 @@ export async function fetchGameConstants(): Promise<GameConstants> {
 }
 
 // Check current logged-in user using the session cookie
+// Return current session user (or null when logged out).
 export async function fetchMe(): Promise<{
 	id: number;
 	username: string;
@@ -32,6 +34,7 @@ export async function fetchMe(): Promise<{
 }
 
 // Register a new user (also creates a session cookie on success)
+// Register a new local user and establish a session cookie.
 export async function registerUser(params: { username: string; password: string }): Promise<void> {
 	const res = await fetch(`${API_BASE}/api/user/register`, {
 		method: "POST",
@@ -51,6 +54,7 @@ export async function registerUser(params: { username: string; password: string 
 }
 
 // Login existing user (sets session cookie on success)
+// Log in an existing user and set session cookie.
 export async function loginUser(params: { username: string; password: string }): Promise<void> {
 	const res = await fetch(`${API_BASE}/api/user/login`, {
 		method: "POST",
@@ -70,6 +74,7 @@ export async function loginUser(params: { username: string; password: string }):
 }
 
 // Logout current user (clears the cookie on the server)
+// Log out current user and close active sockets.
 export async function logout(params: { username: string }): Promise<void> {
 	const res = await fetch(`${API_BASE}/api/user/logout`, {
 		method: "POST",
@@ -81,6 +86,7 @@ export async function logout(params: { username: string }): Promise<void> {
 	if (!res.ok) throw new Error("logout failed");
 }
 
+// Update a single user field (password or avatar).
 export async function updateUser(params: {
 	username: string;
 	newUsername?: string;
@@ -125,6 +131,7 @@ export type Tournament = {
 	playersJoined: number;
 };
 
+// Fetch open tournaments for lobby list.
 export async function fetchTournamentList(): Promise<Tournament[]> {
 	const res = await fetch(`${API_BASE}/api/tournaments/open`, {
 		credentials: "include",
@@ -148,6 +155,7 @@ export async function fetchTournamentList(): Promise<Tournament[]> {
 // ============================================================================
 
 // Basic public user info (username, avatar)
+// Fetch public profile info by username.
 export async function fetchUserPublic(username: string) {
 	const res = await fetch(`${API_BASE}/api/user/${username}`, {
 		credentials: "include",
@@ -162,6 +170,7 @@ export async function fetchUserPublic(username: string) {
 }
 
 // Online status (boolean)
+// Check if a user is currently online.
 export async function fetchUserOnline(username: string) {
 	const res = await fetch(`${API_BASE}/api/user/online/${username}`, {
 		credentials: "include",
@@ -174,6 +183,7 @@ export async function fetchUserOnline(username: string) {
 }
 
 // Match history (requires backend support)
+// Fetch public match history for a user.
 export async function fetchUserMatches(username: string) {
 	const res = await fetch(`${API_BASE}/api/user/${username}/matches`, {
 		credentials: "include",
@@ -188,6 +198,7 @@ export async function fetchUserMatches(username: string) {
 }
 
 // Stats (wins, losses, etc)
+// Fetch public stats for a user.
 export async function fetchUserStats(username: string) {
 	const res = await fetch(`${API_BASE}/api/user/${username}/stats`, {
 		credentials: "include",

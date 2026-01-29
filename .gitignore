@@ -40,5 +40,3 @@ Thumbs.db
 backend/.tmp/
 
 certs/*
-
-onchain-hardhat/.env

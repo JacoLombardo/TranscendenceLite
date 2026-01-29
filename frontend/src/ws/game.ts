@@ -21,6 +21,7 @@ const { ROOM_ID, WS_HOST, WS_PORT, WS_PROTOCOL } = endpoints;
 let currentPlayerMatchId: string | null = null;
 
 // export getter function so ui.ts can check if player is in a specific match
+// Return current match id for tournament UI helpers.
 export function getCurrentPlayerMatchId(): string | null {
 	return currentPlayerMatchId;
 }
@@ -34,6 +35,7 @@ let showPlayerLeftMessage: (message: string) => Promise<void> = async () => {};
 let onMatchOver: (matchId?: string) => void = () => {};
 
 // function that registers the UI handlers (replaces the no-op functions above with the actual handlers)
+// Register UI callbacks used by the WS handlers.
 export function registerGameUiHandlers(handlers: {
 	waitingForPlayers?: () => void;
 	countdownToGame?: (n: number, side?: "left" | "right") => void;
@@ -50,6 +52,7 @@ export function registerGameUiHandlers(handlers: {
 	if (handlers.onMatchOver) onMatchOver = handlers.onMatchOver;
 }
 
+// Connect to a local single-game WebSocket.
 export function connectToLocalSingleGameWS(state: MatchState): () => void {
 	const wsUrl = `${WS_PROTOCOL}://${WS_HOST}:${WS_PORT}/api/local-single-game/${ROOM_ID}/ws`;
 
@@ -158,6 +161,7 @@ export function connectToLocalSingleGameWS(state: MatchState): () => void {
 	return () => ws.close();
 }
 
+// Connect to a remote single-game WebSocket.
 export function connectToSingleGameWS(state: MatchState, roomId?: string): () => void {
 	const targetRoomId = roomId ?? ROOM_ID;
 	const wsUrl = `${WS_PROTOCOL}://${WS_HOST}:${WS_PORT}/api/single-game/${targetRoomId}/ws`;
@@ -271,6 +275,7 @@ export function connectToSingleGameWS(state: MatchState, roomId?: string): () =>
 	return () => ws.close();
 }
 
+// Connect to a tournament WebSocket with optional metadata.
 export function connectToTournamentWS(
 	state: MatchState,
 	roomId?: string,

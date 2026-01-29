@@ -1,3 +1,4 @@
+// Convert UTC-ish timestamps to local display, fallback to dash.
 export function convertUTCStringToLocal(dateString?: string | null): string {
 	if (!dateString) return "—";
 	const trimmed = dateString.trim();
