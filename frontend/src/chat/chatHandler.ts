@@ -336,8 +336,8 @@ async function handleDuelChallenge(anchorElement: HTMLElement) {
 			availableGames.push({
 				type: "single",
 				id: g.id,
-				creator: g.creator,
-				name: g.name || `Game ${g.id.substring(0, 8)}`, // Use generated name or fallback to short ID
+				creator: creatorName,
+				name: creatorName !== "Unknown" ? `${creatorName} game` : `Game ${g.id.substring(0, 8)}`,
 			});
 		});
 	}

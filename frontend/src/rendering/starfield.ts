@@ -1,9 +1,12 @@
+// Initialize and animate the background starfield.
 export function initStarfield() {
   const canvas = document.getElementById("bg-stars") as HTMLCanvasElement | null;
   if (!canvas) return;
+  const canvasEl = canvas;
 
-  const ctx = canvas.getContext("2d");
+  const ctx = canvasEl.getContext("2d");
   if (!ctx) return;
+  const ctx2d = ctx;
 
   const colors = ["#ff2cfb", "#2ffffa"];
 
@@ -17,8 +20,8 @@ export function initStarfield() {
     mouseY = e.clientY / window.innerHeight - 0.5;
   });
 
-  const w = () => canvas.width;
-  const h = () => canvas.height;
+  const w = () => canvasEl.width;
+  const h = () => canvasEl.height;
 
   interface Star {
     x: number;
@@ -43,8 +46,8 @@ export function initStarfield() {
   }
 
   function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    canvasEl.width = window.innerWidth;
+    canvasEl.height = window.innerHeight;
 
     const count = Math.floor((w() * h()) / 15000);
 
@@ -58,7 +61,7 @@ export function initStarfield() {
   window.addEventListener("resize", resize);
 
   function loop(t: number) {
-    ctx.clearRect(0, 0, w(), h());
+    ctx2d.clearRect(0, 0, w(), h());
 
     for (const s of stars) {
       // vertical drift
@@ -75,9 +78,9 @@ export function initStarfield() {
       const px = mouseX * s.size * PARALLAX;
       const py = mouseY * s.size * PARALLAX;
 
-      ctx.globalAlpha = tw;
-      ctx.fillStyle = s.color;
-      ctx.fillRect(s.x + px, s.y + py, s.size, s.size);
+      ctx2d.globalAlpha = tw;
+      ctx2d.fillStyle = s.color;
+      ctx2d.fillRect(s.x + px, s.y + py, s.size, s.size);
     }
 
     requestAnimationFrame(loop);
