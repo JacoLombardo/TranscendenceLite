@@ -105,7 +105,7 @@ export type SingleGame = {
 	mode: "remote" | "local";
 	creator: string; // username of the player who created the game (only for naming the game)
 	//gameNumber: number; // number of games a user has created (only for naming the game)
-	expirationTimer?: NodeJS.Timeout;
+	expirationTimer?: ReturnType<typeof setTimeout>;
 };
 
 export type TournamentState = {
@@ -127,7 +127,7 @@ export type Tournament = {
 		socket: any;
 		currentMatch: Match;
 	}[];
-	expirationTimer?: NodeJS.Timeout;
+	expirationTimer?: ReturnType<typeof setTimeout>;
 };
 
 export interface ApiOpenSingleGame {
