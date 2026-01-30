@@ -64,7 +64,7 @@ function setupLanguageUI(langSwitcher: HTMLDivElement) {
   submenu.id = "global-lang-submenu";
   document.body.append(submenu);
 
-  function addLang(code: "en" | "de" | "fr", label: string) {
+  function addLang(code: "en" | "de" | "fr" | "es", label: string) {
     const btn = document.createElement("button");
     btn.textContent = label;
     btn.onclick = () => {
@@ -97,6 +97,7 @@ function setupLanguageUI(langSwitcher: HTMLDivElement) {
   addLang("en", "EN");
   addLang("de", "DE");
   addLang("fr", "FR");
+  addLang("es", "ES");
 
   currentLangBtn.onmouseenter = () => {
     const rect = currentLangBtn.getBoundingClientRect();

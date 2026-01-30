@@ -1,12 +1,14 @@
 import en from "./en";
 import de from "./de";
 import fr from "./fr";
+import es from "./es";
 
-type Language = "en" | "de" | "fr";
+type Language = "en" | "de" | "fr" | "es";
 const translations: Record<Language, any> = {
   en,
   de,
   fr,
+  es,
 };
 
 let currentLanguage: Language = "en";
@@ -54,7 +56,7 @@ export function getLanguage(): Language {
   }
 
   const browser = navigator.language.slice(0, 2) as Language;
-  if (browser === "de" || browser === "fr") {
+  if (browser === "de" || browser === "fr" || browser === "es") {
     setLanguage(browser);
   } else {
     setLanguage("en");

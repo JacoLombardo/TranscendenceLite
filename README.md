@@ -1,47 +1,96 @@
-# Deployed Version (42 Transcendence)
+# Transcendence
 
-**Disclaimer:** This is the deployed version of 42 Transcendence. The following features have been changed or removed for deployment's sake. The app is hosted with the frontend on Vercel and the backend on Fly.io.
-
----
-
-## What Changed for Deployment
-
-### Authentication & Cookies
-
-- **Third-party cookie workaround:** Browsers often block third-party cookies when the frontend (Vercel) and backend (Fly) are on different domains. To keep login working:
-  - The backend **returns the session token in the JSON body** on login and register (in addition to setting the `sid` cookie).
-  - The frontend **stores this token** (e.g. in `sessionStorage`) and sends it via the **`Authorization: Bearer <token>`** header on API requests.
-  - WebSocket connections can send the token as a **`?token=...`** query parameter when the cookie is not sent.
-- Session cookies still use **`SameSite=None`** and **`Secure`** in production so that, when cookies are allowed, they work across origins. The Bearer token is used when cookies are blocked.
-
-### Infrastructure
-
-- **Frontend:** Deployed on **Vercel** (separate origin from the backend).
-- **Backend:** Deployed on **Fly.io** (e.g. `transcendence-lite-backend.fly.dev`).
-- **Database:** Unchanged (e.g. Neon Postgres); ensure the backend has the correct `DATABASE_URL` and other env vars on Fly.
-- **CORS:** Backend allows credentials and reflects the request origin so that the Vercel frontend can call the API and send cookies when allowed.
-
-### Optional / Environment
-
-- **`SESSION_SECRET`:** Should be set on Fly (and kept secret). If unset, the app falls back to a default (suitable only for development).
-- **`FRONTEND_ORIGIN`:** Used for OAuth redirects; should point to the Vercel app URL (e.g. `https://transcendence-lite.vercel.app`).
-- **`NODE_ENV`:** Not required for cookie behavior; the backend infers HTTPS from `X-Forwarded-Proto` when behind Fly's proxy.
-
-### What Was Not Removed
-
-- Core features (registration, login, OAuth, profile, friends, block list, chat, local/online/tournament games) are unchanged.
-- Internationalization (EN, DE, FR) is unchanged.
-- Game logic, WebSockets, and database schema are the same as in the original 42 Transcendence project.
+**Deployed version of 42 Transcendence.** The app runs with the frontend on Vercel and the backend on Fly.io. Auth uses a Bearer token (returned on login/register and sent in the `Authorization` header) when third-party cookies are blocked; otherwise behaviour matches the original project.
+To check the original project: https://github.com/JacoLombardo/42_ft_transcendence.
 
 ---
 
-## Deploying
+Transcendence is a full-stack multiplayer Pong web app. Players can play locally, online, or in tournaments, chat in real time, manage profiles and friends, and use GitHub OAuth or local login. The UI is available in English, German, French, and Spanish.
 
-- **Backend (Fly):** From the `backend` directory: `fly deploy`. Ensure secrets (e.g. `SESSION_SECRET`, `DATABASE_URL`) are set in the Fly app.
-- **Frontend (Vercel):** Connect the repo to Vercel or run `vercel --prod` from the project root. Set `VITE_API_BASE` (and `VITE_WS_BASE` if needed) to the Fly backend URL so the frontend talks to the correct API and WebSockets.
+## Composition
 
----
+- **Frontend:** Vite + TypeScript SPA (menu, game views, profile, chat, tournament lobby).
+- **Backend:** Fastify + TypeScript API and WebSockets (game state, matchmaking, chat, auth).
+- **Database:** PostgreSQL (e.g. Neon) for users, matches, tournaments, messages.
+- **Deployed:** Frontend on Vercel, backend on Fly.io; auth works cross-origin via Bearer token when cookies are blocked.
 
-## Latency Note
+## Features
 
-With the frontend and backend on different providers/regions, network latency can make the game feel slightly laggy. Improving that would require larger changes (e.g. same region, client-side prediction, or edge/regional backends).
+- Real-time Pong with server-authoritative physics and ~60 FPS state updates.
+- Local multiplayer (two players on one keyboard) and online multiplayer over WebSockets.
+- Tournament system with bracket matchmaking and 3rd-place + final.
+- User accounts: register, login, avatars (Cloudinary), friends, block list.
+- GitHub OAuth for passwordless login.
+- Live chat with direct messages and game/tournament invites.
+- Internationalization: EN, DE, FR, ES.
+- Responsive SPA with hash-based routing.
+
+## Technology
+
+- Backend: Fastify, TypeScript, WebSocket (ws), bcryptjs, pg, Cloudinary.
+- Frontend: Vite, TypeScript, vanilla JS (no framework).
+- Database: PostgreSQL.
+- Deploy: Vercel (frontend), Fly.io (backend, Docker).
+
+## Setup
+
+```bash
+# Backend
+cd backend && npm install
+cp .env.example .env   # if present; set DATABASE_URL and optional SESSION_SECRET, FRONTEND_ORIGIN
+
+# Frontend
+cd frontend && npm install
+```
+
+Run locally (backend and frontend on same machine, or point frontend at backend URL):
+
+```bash
+# Terminal 1 – backend
+cd backend && npm run dev
+
+# Terminal 2 – frontend (defaults to same origin; or set VITE_API_BASE)
+cd frontend && npm run dev
+```
+
+With Docker (backend + DB; frontend still usually run with `npm run dev` for dev):
+
+```bash
+make up
+```
+
+Backend runs on port 4000 by default; frontend dev server on 5173.
+
+## Environment
+
+**Backend (`.env` or Fly secrets):**
+
+- `DATABASE_URL` – PostgreSQL connection string.
+- `SESSION_SECRET` – Secret for signing session tokens (set in production).
+- `FRONTEND_ORIGIN` – Full frontend URL for OAuth redirects (e.g. `https://your-app.vercel.app`).
+- Optional: Cloudinary env vars for avatar uploads; GitHub OAuth client id/secret for OAuth.
+
+**Frontend (build-time / Vercel env):**
+
+- `VITE_API_BASE` – Backend API URL (e.g. `https://your-backend.fly.dev`).
+- `VITE_WS_BASE` – Optional; defaults to same as API for WebSocket URL.
+
+## Build
+
+```bash
+# Backend
+cd backend && npm run build
+
+# Frontend
+cd frontend && npm run build
+```
+
+## Deploy
+
+- **Backend (Fly):** `cd backend && fly deploy`. Set secrets: `SESSION_SECRET`, `DATABASE_URL`, `FRONTEND_ORIGIN`, and any OAuth/Cloudinary keys.
+- **Frontend (Vercel):** Connect the repo to Vercel or run `vercel --prod`. Set `VITE_API_BASE` (and `VITE_WS_BASE` if needed) to the Fly backend URL.
+
+## Notes
+
+- With frontend and backend on different regions, network latency can make the game feel slightly laggy.
+- Session cookie is still set with `SameSite=None` and `Secure`; when the browser blocks it (cross-origin), the app uses the Bearer token from the login/register response and sends it on API and WebSocket requests.
