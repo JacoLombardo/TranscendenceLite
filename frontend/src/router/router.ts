@@ -1,5 +1,5 @@
 // src/router/router.ts
-import { fetchMe } from "../api/http";
+import { fetchMe, setAuthToken } from "../api/http";
 
 export type View = (
   container: HTMLElement,
@@ -69,9 +69,22 @@ async function render() {
   isRendering = true;
 
   try {
-    // FIX: remove ?query from hash
     const fullHash = location.hash || "#/login";
-    const hash = fullHash.split("?")[0];
+    const [hashPart, queryPart] = fullHash.split("?");
+    const hash = hashPart || "#/login";
+    // OAuth callback: backend redirects to #/menu?token=... when cookies are blocked
+    if (queryPart) {
+      const params = new URLSearchParams(queryPart);
+      const token = params.get("token");
+      if (token) {
+        setAuthToken(token);
+        if (history.replaceState) {
+          history.replaceState(null, "", hash);
+        } else {
+          location.hash = hash;
+        }
+      }
+    }
 
     // ===========================================================
     //  Dynamic user profile route: #/user/<username>

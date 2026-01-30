@@ -2,15 +2,15 @@
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import crypto from "node:crypto";
-import { createSessionToken, makeSessionCookie } from "../auth/session.js";
+import { createSessionToken, isSecureContext, makeSessionCookie } from "../auth/session.js";
 import { getGithubUserByProviderIdDB, isUsernameDB } from "../database/users/getters.js";
 import { registerGithubUserDB } from "../database/users/setters.js";
 import { readCookie, setStateCookie } from "../auth/oauth.js";
 import fs from "fs";
 
-// OAuth config from .env
+// OAuth config: env vars (Fly, Vercel, etc.) or file-based secrets (Docker/Kubernetes)
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN;
-function readSecret(path: string): string | undefined {
+function readSecretFile(path: string): string | undefined {
 	try {
 		const value = fs.readFileSync(path, "utf8").trim();
 		return value.length > 0 ? value : undefined;
@@ -19,22 +19,32 @@ function readSecret(path: string): string | undefined {
 	}
 }
 
-const GITHUB_CLIENT_ID = readSecret("/run/secrets/github_client_id");
-const GITHUB_CLIENT_SECRET = readSecret("/run/secrets/github_client_secret");
+const GITHUB_CLIENT_ID =
+	process.env.GITHUB_CLIENT_ID ?? readSecretFile("/run/secrets/github_client_id");
+const GITHUB_CLIENT_SECRET =
+	process.env.GITHUB_CLIENT_SECRET ?? readSecretFile("/run/secrets/github_client_secret");
 export default async function oauthRoutes(fastify: FastifyInstance) {
+	function getRedirectUri(request: FastifyRequest): string {
+		const envUri = process.env.GITHUB_REDIRECT_URI?.trim();
+		if (envUri) return envUri;
+		const proto = request.headers["x-forwarded-proto"] === "https" ? "https" : (request.protocol || "http");
+		const host = request.headers.host || "";
+		// Default matches common GitHub OAuth callback path
+		return host ? `${proto}://${host}/api/oauth/callback` : "";
+	}
+
 	fastify.get("/api/auth/github/start", async (request, reply) => {
 		if (!GITHUB_CLIENT_ID || !GITHUB_CLIENT_SECRET) {
 			return reply.code(500).send({ success: false, message: "GitHub OAuth not configured" });
 		}
 
+		const redirectUri = getRedirectUri(request);
+		if (!redirectUri) {
+			return reply.code(500).send({ success: false, message: "GITHUB_REDIRECT_URI or Host header required" });
+		}
+
 		const state = crypto.randomUUID();
 		setStateCookie(reply, state);
-
-		const protocol = request.protocol || "http";
-		const host = request.headers.host;
-		const redirectUri = process.env.GITHUB_REDIRECT_URI || "";
-
-		console.log("[OAuth] Starting GitHub OAuth with redirect_uri:", redirectUri);
 
 		const url = new URL("https://github.com/login/oauth/authorize");
 		url.searchParams.set("client_id", GITHUB_CLIENT_ID);
@@ -45,7 +55,8 @@ export default async function oauthRoutes(fastify: FastifyInstance) {
 		reply.redirect(url.toString());
 	});
 
-	fastify.get("/api/auth/github/callback", async (request: FastifyRequest, reply: FastifyReply) => {
+	// Callback handler (register at both paths for flexibility)
+	async function handleCallback(request: FastifyRequest, reply: FastifyReply) {
 		const code = (request.query as any)?.code as string | undefined;
 		const state = (request.query as any)?.state as string | undefined;
 
@@ -54,11 +65,10 @@ export default async function oauthRoutes(fastify: FastifyInstance) {
 			return reply.code(400).send({ success: false, message: "Invalid OAuth state" });
 		}
 
-		const protocol = request.protocol || "http";
-		const host = request.headers.host;
-		const redirectUri = process.env.GITHUB_REDIRECT_URI || "";
-
-		console.log("[OAuth] Callback received with redirect_uri:", redirectUri);
+		const redirectUri = getRedirectUri(request);
+		if (!redirectUri) {
+			return reply.code(500).send({ success: false, message: "GITHUB_REDIRECT_URI or Host header required" });
+		}
 
 		const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
 			method: "POST",
@@ -107,14 +117,17 @@ export default async function oauthRoutes(fastify: FastifyInstance) {
 		}
 
 		const { token, maxAgeSec } = createSessionToken(username, 60);
-		const secure = process.env.NODE_ENV === "production";
-
+		const secure = isSecureContext(request) || process.env.NODE_ENV === "production";
 		reply.header("Set-Cookie", makeSessionCookie(token, { secure, maxAgeSec }));
 
 		if (!FRONTEND_ORIGIN) {
 			return reply.code(500).send({ success: false, message: "FRONTEND_ORIGIN not configured" });
 		}
+		// Pass token in URL so frontend can store it when third-party cookies are blocked
+		const tokenParam = `token=${encodeURIComponent(token)}`;
+		reply.redirect(`${FRONTEND_ORIGIN}/#/menu?${tokenParam}`);
+	}
 
-		reply.redirect(`${FRONTEND_ORIGIN}/#/menu`);
-	});
+	fastify.get("/api/auth/github/callback", handleCallback);
+	fastify.get("/api/oauth/callback", handleCallback);
 }
