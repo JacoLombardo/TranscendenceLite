@@ -94,4 +94,4 @@ cd frontend && npm run build
 ## Notes
 
 - With frontend and backend on different regions, network latency can make the game feel slightly laggy.
-- Session cookie is still set with `SameSite=None` and `Secure`; when the browser blocks it (cross-origin), the app uses the Bearer token from the login/register response and sends it on API and WebSocket requests.
+- Session cookie is still set with `SameSite=None` and `Secure`; when the browser blocks it (cross-origin), the app uses the Bearer token from the login/register response and sends it on API and WebSocket requests. 
