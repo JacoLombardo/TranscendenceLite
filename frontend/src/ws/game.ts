@@ -1,3 +1,4 @@
+import { getAuthToken } from "../api/http";
 import { userData } from "../config/constants";
 import * as endpoints from "../config/endpoints";
 import { flushInputs, queueInput, setActiveSocket, setAssignedSide } from "../game/input";
@@ -54,7 +55,9 @@ export function registerGameUiHandlers(handlers: {
 
 // Connect to a local single-game WebSocket.
 export function connectToLocalSingleGameWS(state: MatchState): () => void {
-	const wsUrl = `${WS_PROTOCOL}://${WS_HOST}:${WS_PORT}/api/local-single-game/${ROOM_ID}/ws`;
+	let wsUrl = `${WS_PROTOCOL}://${WS_HOST}:${WS_PORT}/api/local-single-game/${ROOM_ID}/ws`;
+	const token = getAuthToken();
+	if (token) wsUrl += "?token=" + encodeURIComponent(token);
 
 	const ws = new WebSocket(wsUrl);
 	userData.gameSock = ws;
@@ -164,7 +167,9 @@ export function connectToLocalSingleGameWS(state: MatchState): () => void {
 // Connect to a remote single-game WebSocket.
 export function connectToSingleGameWS(state: MatchState, roomId?: string): () => void {
 	const targetRoomId = roomId ?? ROOM_ID;
-	const wsUrl = `${WS_PROTOCOL}://${WS_HOST}:${WS_PORT}/api/single-game/${targetRoomId}/ws`;
+	let wsUrl = `${WS_PROTOCOL}://${WS_HOST}:${WS_PORT}/api/single-game/${targetRoomId}/ws`;
+	const token = getAuthToken();
+	if (token) wsUrl += "?token=" + encodeURIComponent(token);
 
 	const ws = new WebSocket(wsUrl);
 	userData.gameSock = ws;
@@ -291,6 +296,8 @@ export function connectToTournamentWS(
 	if (displayName) {
 		queryParams.set("displayName", displayName);
 	}
+	const token = getAuthToken();
+	if (token) queryParams.set("token", token);
 	const queryString = queryParams.toString();
 	const nameParam = queryString ? `?${queryString}` : "";
 	const wsUrl = `${WS_PROTOCOL}://${WS_HOST}:${WS_PORT}/api/tournament/${targetRoomId}/ws${nameParam}`;

@@ -1,7 +1,7 @@
 import "./userProfile.css";
 import { navigate } from "../../router/router";
 import { t } from "../../i18n";
-import { fetchUserPublic } from "../../api/http";
+import { fetchUserPublic, getAuthHeaders } from "../../api/http";
 import { generalData, userData } from "../../config/constants";
 import { API_BASE } from "../../config/endpoints";
 import { sendMessage } from "../../chat/chatHandler";
@@ -13,7 +13,7 @@ export async function renderUserProfile(container: HTMLElement, username?: strin
 
 	// 1. Fetch current user data (friends/blocks) to ensure UI is accurate
 	try {
-		const meRes = await fetch(`${API_BASE}/api/user/data`, { credentials: "include" });
+		const meRes = await fetch(`${API_BASE}/api/user/data`, { credentials: "include", headers: getAuthHeaders() });
 		const meBody = await meRes.json();
 		if (meBody.success) {
 			userData.friends = meBody.data.friends ?? [];
@@ -129,10 +129,10 @@ export async function renderUserProfile(container: HTMLElement, username?: strin
 					await fetch(`${API_BASE}/api/user/${isFriend ? "remove-friend" : "add-friend"}`, {
 						method: "POST",
 						credentials: "include",
-						headers: { "Content-Type": "application/json" },
+						headers: { "Content-Type": "application/json", ...getAuthHeaders() },
 						body: JSON.stringify({ username: userData.username, friend: user.username }),
 					});
-					const res = await fetch(`${API_BASE}/api/user/data`, { credentials: "include" });
+					const res = await fetch(`${API_BASE}/api/user/data`, { credentials: "include", headers: getAuthHeaders() });
 					const body = await res.json();
 					if (body.success) userData.friends = body.data.friends;
 					friendBtn.textContent = userData.friends?.includes(user.username)
@@ -204,7 +204,7 @@ export async function renderUserProfile(container: HTMLElement, username?: strin
 				const avatarImg = document.createElement("img");
 				avatarImg.className = "profile-friend-avatar";
 				avatarImg.src = "/default-avatar.png";
-				fetch(`${API_BASE}/api/user/${friend}`, { credentials: "include" })
+				fetch(`${API_BASE}/api/user/${friend}`, { credentials: "include", headers: getAuthHeaders() })
 					.then((r) => r.json())
 					.then((b) => {
 						if (b.success && b.data.avatar) avatarImg.src = b.data.avatar;
@@ -428,7 +428,7 @@ export async function renderUserProfile(container: HTMLElement, username?: strin
 			}
 		};
 
-		fetch(`${API_BASE}/api/games/of/${user.username}`, { credentials: "include" })
+		fetch(`${API_BASE}/api/games/of/${user.username}`, { credentials: "include", headers: getAuthHeaders() })
 			.then((r) => r.json())
 			.then((res) => {
 				if (!res.success) return;

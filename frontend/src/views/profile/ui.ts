@@ -1,10 +1,10 @@
 import "./profile.css";
-import { fetchMe, updateUser } from "../../api/http";
-import { navigate } from "../../router/router";
-import { updateTopBar } from "../topbar/ui";
-import { t } from "../../i18n";
+import { fetchMe, getAuthHeaders, updateUser } from "../../api/http";
 import { userData } from "../../config/constants";
 import { API_BASE } from "../../config/endpoints";
+import { t } from "../../i18n";
+import { navigate } from "../../router/router";
+import { updateTopBar } from "../topbar/ui";
 import { convertUTCStringToLocal } from "../../utils/time";
 
 export async function renderProfile(container: HTMLElement) {
@@ -212,7 +212,7 @@ export async function renderProfile(container: HTMLElement) {
 				const fav = document.createElement("img");
 				fav.className = "profile-friend-avatar";
 				fav.src = "/default-avatar.png";
-				fetch(`${API_BASE}/api/user/${friend}`, { credentials: "include" })
+				fetch(`${API_BASE}/api/user/${friend}`, { credentials: "include", headers: getAuthHeaders() })
 					.then((r) => r.json())
 					.then((b) => {
 						if (b.success && b.data.avatar) fav.src = b.data.avatar;
@@ -499,7 +499,7 @@ export async function renderProfile(container: HTMLElement) {
 			}
 		};
 
-		fetch(`${API_BASE}/api/games/of/${username}`, { credentials: "include" })
+		fetch(`${API_BASE}/api/games/of/${username}`, { credentials: "include", headers: getAuthHeaders() })
 			.then((r) => r.json())
 			.then((res) => {
 				if (!res.success) return;

@@ -1,4 +1,6 @@
+import { getAuthHeaders } from "../api/http";
 import { generalData, userData } from "../config/constants";
+import { API_BASE } from "../config/endpoints";
 import {
 	ApiOpenSingleGame,
 	ApiOpenTournament,
@@ -9,7 +11,6 @@ import {
 	OpenGamesResponse,
 } from "./types";
 import { navigate } from "../router/router";
-import { API_BASE } from "../config/endpoints";
 import { t } from "../i18n";import { convertUTCStringToLocal } from "../utils/time";
 
 export function sendMessage(
@@ -281,6 +282,7 @@ async function fetchOpenGames() {
 	try {
 		const response = await fetch(`${API_BASE}/api/games/open`, {
 			credentials: "include",
+			headers: getAuthHeaders(),
 		});
 
 		if (response.status !== 200 && response.status !== 404) {

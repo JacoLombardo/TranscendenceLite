@@ -1,6 +1,7 @@
-import { navigate } from "../../router/router";
-import { t } from "../../i18n";
+import { getAuthHeaders } from "../../api/http";
 import { API_BASE } from "../../config/endpoints";
+import { t } from "../../i18n";
+import { navigate } from "../../router/router";
 import { initChat } from "../../chat/chatView";
 
 export let disposeChat: (() => void | Promise<void>) | null = null;
@@ -64,6 +65,7 @@ export async function renderOnlineLobby(container: HTMLElement) {
 		try {
 			const res = await fetch(`${API_BASE}/api/single-games/open`, {
 				credentials: "include",
+				headers: getAuthHeaders(),
 			});
 			const json = await res.json();
 			if (!json.success) return [];

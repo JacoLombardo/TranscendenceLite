@@ -6,6 +6,21 @@ import { userData } from "../config/constants";
 import { API_BASE } from "../config/endpoints";
 import type { GameConstants } from "../constants";
 
+const AUTH_TOKEN_KEY = "auth_token";
+
+// Bearer token auth (used when third-party cookies are blocked, e.g. Vercel + Fly).
+export function getAuthToken(): string | null {
+	return sessionStorage.getItem(AUTH_TOKEN_KEY);
+}
+export function setAuthToken(token: string | null): void {
+	if (token) sessionStorage.setItem(AUTH_TOKEN_KEY, token);
+	else sessionStorage.removeItem(AUTH_TOKEN_KEY);
+}
+export function getAuthHeaders(): Record<string, string> {
+	const t = getAuthToken();
+	return t ? { Authorization: `Bearer ${t}` } : {};
+}
+
 // Fetch gameplay constants for client sizing.
 export async function fetchGameConstants(): Promise<GameConstants> {
 	const res = await fetch(`${API_BASE}/api/constants`, {
@@ -16,8 +31,7 @@ export async function fetchGameConstants(): Promise<GameConstants> {
 	return data as GameConstants;
 }
 
-// Check current logged-in user using the session cookie
-// Return current session user (or null when logged out).
+// Check current logged-in user (cookie or Bearer token).
 export async function fetchMe(): Promise<{
 	id: number;
 	username: string;
@@ -26,6 +40,7 @@ export async function fetchMe(): Promise<{
 } | null> {
 	const res = await fetch(`${API_BASE}/api/user/me`, {
 		credentials: "include",
+		headers: { ...getAuthHeaders() },
 	});
 	if (res.status === 401) return null;
 	if (!res.ok) throw new Error("me fetch failed");
@@ -33,17 +48,16 @@ export async function fetchMe(): Promise<{
 	return body?.data ?? null;
 }
 
-// Register a new user (also creates a session cookie on success)
-// Register a new local user and establish a session cookie.
+// Register a new user (session cookie + token in body for cross-origin).
 export async function registerUser(params: { username: string; password: string }): Promise<void> {
 	const res = await fetch(`${API_BASE}/api/user/register`, {
 		method: "POST",
-		headers: { "Content-Type": "application/json" },
+		headers: { "Content-Type": "application/json", ...getAuthHeaders() },
 		credentials: "include",
 		body: JSON.stringify(params),
 	});
+	const text = await res.text();
 	if (!res.ok) {
-		const text = await res.text();
 		let message = "register failed";
 		try {
 			const body = JSON.parse(text);
@@ -51,19 +65,22 @@ export async function registerUser(params: { username: string; password: string 
 		} catch {}
 		throw new Error(message);
 	}
+	try {
+		const body = JSON.parse(text);
+		if (body?.token) setAuthToken(body.token);
+	} catch {}
 }
 
-// Login existing user (sets session cookie on success)
-// Log in an existing user and set session cookie.
+// Login existing user (session cookie + token in body for cross-origin).
 export async function loginUser(params: { username: string; password: string }): Promise<void> {
 	const res = await fetch(`${API_BASE}/api/user/login`, {
 		method: "POST",
-		headers: { "Content-Type": "application/json" },
+		headers: { "Content-Type": "application/json", ...getAuthHeaders() },
 		credentials: "include",
 		body: JSON.stringify(params),
 	});
+	const text = await res.text();
 	if (!res.ok) {
-		const text = await res.text();
 		let message = "login failed";
 		try {
 			const body = JSON.parse(text);
@@ -71,16 +88,21 @@ export async function loginUser(params: { username: string; password: string }):
 		} catch {}
 		throw new Error(message);
 	}
+	try {
+		const body = JSON.parse(text);
+		if (body?.token) setAuthToken(body.token);
+	} catch {}
 }
 
-// Logout current user (clears the cookie on the server)
-// Log out current user and close active sockets.
+// Logout current user (clears cookie and local token).
 export async function logout(params: { username: string }): Promise<void> {
 	const res = await fetch(`${API_BASE}/api/user/logout`, {
 		method: "POST",
 		credentials: "include",
+		headers: getAuthHeaders(),
 		body: JSON.stringify(params),
 	});
+	setAuthToken(null);
 	userData.userSock?.close();
 	userData.gameSock?.close();
 	if (!res.ok) throw new Error("logout failed");
@@ -95,7 +117,7 @@ export async function updateUser(params: {
 }): Promise<void> {
 	const res = await fetch(`${API_BASE}/api/user/update`, {
 		method: "POST",
-		headers: { "Content-Type": "application/json" },
+		headers: { "Content-Type": "application/json", ...getAuthHeaders() },
 		credentials: "include",
 		body: JSON.stringify(params),
 	});
@@ -135,6 +157,7 @@ export type Tournament = {
 export async function fetchTournamentList(): Promise<Tournament[]> {
 	const res = await fetch(`${API_BASE}/api/tournaments/open`, {
 		credentials: "include",
+		headers: getAuthHeaders(),
 	});
 
 	if (res.status === 404) {
@@ -155,10 +178,10 @@ export async function fetchTournamentList(): Promise<Tournament[]> {
 // ============================================================================
 
 // Basic public user info (username, avatar)
-// Fetch public profile info by username.
 export async function fetchUserPublic(username: string) {
 	const res = await fetch(`${API_BASE}/api/user/${username}`, {
 		credentials: "include",
+		headers: getAuthHeaders(),
 	});
 
 	if (!res.ok) throw new Error("Failed to fetch user");
@@ -170,10 +193,10 @@ export async function fetchUserPublic(username: string) {
 }
 
 // Online status (boolean)
-// Check if a user is currently online.
 export async function fetchUserOnline(username: string) {
 	const res = await fetch(`${API_BASE}/api/user/online/${username}`, {
 		credentials: "include",
+		headers: getAuthHeaders(),
 	});
 
 	if (!res.ok) throw new Error("Failed to fetch online status");
@@ -182,11 +205,11 @@ export async function fetchUserOnline(username: string) {
 	return Boolean(body.data); // backend returns actual boolean
 }
 
-// Match history (requires backend support)
-// Fetch public match history for a user.
+// Match history for a user
 export async function fetchUserMatches(username: string) {
 	const res = await fetch(`${API_BASE}/api/user/${username}/matches`, {
 		credentials: "include",
+		headers: getAuthHeaders(),
 	});
 
 	if (!res.ok) throw new Error("Failed to fetch match history");
@@ -198,10 +221,10 @@ export async function fetchUserMatches(username: string) {
 }
 
 // Stats (wins, losses, etc)
-// Fetch public stats for a user.
 export async function fetchUserStats(username: string) {
 	const res = await fetch(`${API_BASE}/api/user/${username}/stats`, {
 		credentials: "include",
+		headers: getAuthHeaders(),
 	});
 
 	if (!res.ok) throw new Error("Failed to fetch stats");

@@ -1,3 +1,4 @@
+import { getAuthToken } from "../api/http";
 import { userData } from "../config/constants";
 import { WS_HOST, WS_PORT, WS_PROTOCOL } from "../config/endpoints";
 
@@ -7,7 +8,9 @@ export function connectToUserWS(username: string) {
 		return () => {};
 	}
 
-	const wsUrl = `${WS_PROTOCOL}://${WS_HOST}:${WS_PORT}/api/user/ws`;
+	let wsUrl = `${WS_PROTOCOL}://${WS_HOST}:${WS_PORT}/api/user/ws`;
+	const token = getAuthToken();
+	if (token) wsUrl += "?token=" + encodeURIComponent(token);
 
 	const ws = new WebSocket(wsUrl);
 

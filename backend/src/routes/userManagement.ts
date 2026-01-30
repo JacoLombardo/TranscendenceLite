@@ -8,7 +8,7 @@ import {
 	addFriendDB,
 	removeFriendDB,
 } from "../database/users/setters.js";
-import { clearSessionCookie, createSessionToken, makeSessionCookie } from "../auth/session.js";
+import { clearSessionCookie, createSessionToken, isSecureContext, makeSessionCookie } from "../auth/session.js";
 import { uploadAvatar } from "../user/cloudinary.js";
 import { DEFAULT_AVATAR_URL } from "../config/constants.js";
 import { updateUserOnline, userLogout } from "../user/online.js";
@@ -54,12 +54,13 @@ export default async function userManagementRoutes(fastify: FastifyInstance) {
 			// Immediately create a session so the user is logged in after registering
 			const user = await getUserByUsernameDB(username);
 			const { token, maxAgeSec } = createSessionToken(username, 60);
-			const secure = process.env.NODE_ENV === "production";
-			console.log("COOKIE:", token, maxAgeSec);
-
+			const secureFromRequest = isSecureContext(request);
+			const secureFromEnv = process.env.NODE_ENV === "production";
+			const secure = secureFromRequest || secureFromEnv;
+			console.log("[AUTH] register: x-forwarded-proto=", request.headers["x-forwarded-proto"], "NODE_ENV=", process.env.NODE_ENV, "secure=", secure, "(fromRequest=", secureFromRequest, "fromEnv=", secureFromEnv, ")");
 			reply.header("Set-Cookie", makeSessionCookie(token, { secure, maxAgeSec }));
-
-			return reply.code(200).send({ success: true, message: "Registration successful" });
+			// Return token in body so frontend can use Bearer auth when cookies are blocked (cross-origin)
+			return reply.code(200).send({ success: true, message: "Registration successful", token });
 		} catch (error: any) {
 			console.error("[userRT]", error.message);
 			return reply.code(400).send({ success: false, message: "Unable to register user" });
@@ -83,11 +84,13 @@ export default async function userManagementRoutes(fastify: FastifyInstance) {
 
 		// Create a signed session token and attach it as an httpOnly cookie
 		const { token, maxAgeSec } = createSessionToken(username, 60);
-		const secure = process.env.NODE_ENV === "production"; // only set Secure over HTTPS
-
+		const secureFromRequest = isSecureContext(request);
+		const secureFromEnv = process.env.NODE_ENV === "production";
+		const secure = secureFromRequest || secureFromEnv;
+		console.log("[AUTH] login: x-forwarded-proto=", request.headers["x-forwarded-proto"], "NODE_ENV=", process.env.NODE_ENV, "secure=", secure, "(fromRequest=", secureFromRequest, "fromEnv=", secureFromEnv, ")");
 		reply.header("Set-Cookie", makeSessionCookie(token, { secure, maxAgeSec }));
-
-		return reply.code(200).send({ success: true, message: "Login successful" });
+		// Return token in body so frontend can use Bearer auth when cookies are blocked (cross-origin)
+		return reply.code(200).send({ success: true, message: "Login successful", token });
 	});
 
 	// LOGOUT user: clears the session cookie on the client
@@ -100,7 +103,7 @@ export default async function userManagementRoutes(fastify: FastifyInstance) {
 		userLogout(username);
 
 		// Expire the cookie immediately
-		clearSessionCookie(reply);
+		clearSessionCookie(reply, request);
 		return reply.code(200).send({ success: true });
 	});
 

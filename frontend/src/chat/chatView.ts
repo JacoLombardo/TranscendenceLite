@@ -1,3 +1,4 @@
+import { getAuthHeaders } from "../api/http";
 import { generalData, userData } from "../config/constants";
 import { API_BASE } from "../config/endpoints";
 import { t } from "../i18n";
@@ -94,6 +95,7 @@ export function populatePrivateConv(username: string, privateMessages: Message[]
 export async function fetchUserData() {
 	const response = await fetch(`${API_BASE}/api/user/data`, {
 		credentials: "include",
+		headers: getAuthHeaders(),
 	});
 	if (!response.ok) {
 		console.error("Failed to fetch user data, status:", response.status);
@@ -123,6 +125,7 @@ export async function fetchUserData() {
 export async function fetchAllUsers() {
 	const response = await fetch(`${API_BASE}/api/users/all`, {
 		credentials: "include",
+		headers: getAuthHeaders(),
 	});
 	if (!response.ok) {
 		console.error("Failed to fetch all users, status:", response.status);
@@ -141,6 +144,7 @@ export async function fetchAllUsers() {
 export async function fetchOnlineUsers() {
 	const response = await fetch(`${API_BASE}/api/users/online`, {
 		credentials: "include",
+		headers: getAuthHeaders(),
 	});
 	if (!response.ok) {
 		console.error("Failed to fetch online users, status:", response.status);
