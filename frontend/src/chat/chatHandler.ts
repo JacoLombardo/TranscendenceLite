@@ -32,7 +32,6 @@ export function sendMessage(
 	};
 	if (userData.userSock?.readyState === WebSocket.OPEN) {
 		userData.userSock.send(JSON.stringify(message));
-		console.log(`Message sent ${message.type}`);
 	}
 }
 
@@ -136,7 +135,6 @@ export async function renderIncomingMessage(message: Message) {
 					} else {
 						navigate(`#/game?mode=online&id=${message.gameId}`);
 					}
-					console.log("Joining game:", message.gameId);
 				};
 
 				inviteContainer.appendChild(text);
@@ -624,11 +622,9 @@ export function renderChatHeaderButtons(chatHeader: HTMLElement, activeChat: str
 			if (!isBlockedNow) {
 				userData.blockedUsers?.push(activeChat!);
 				sendMessage('block', t("chat.youBlocked") + activeChat, activeChat);
-				console.log(`🚫 User ${activeChat} was blocked`);
 			} else {
 				userData.blockedUsers = userData.blockedUsers!.filter(u => u !== activeChat);
 				sendMessage('unblock', t("chat.youUnblocked") + activeChat, activeChat);
-				console.log(`♻️ User ${activeChat} was UNBLOCKED`);
 			}
 			renderChatHeaderButtons(chatHeader, activeChat);
 		},
@@ -793,7 +789,6 @@ export function populateOnlineUserList(username: string | null = null): string[]
 	if (!generalData.onlineUsers) return ["Global Chat"];
 	onlineList.push("Global Chat");
 	generalData.onlineUsers.forEach((user) => {
-		console.log(`${user} is online!`);
 		if (username !== user) onlineList.push(user);
 	});
 	return onlineList;
@@ -974,14 +969,12 @@ export function wireIncomingChat(
 
 			if (payload && payload.type === "user-online") {
 				const newUserOnline = payload.data.username;
-				console.log(`${newUserOnline} is online!`);
 				addOnlineUser(newUserOnline);
 				renderOnlineUsers(friendList, chatMessages, chatHeader);
 			}
 
 			if (payload && payload.type === "user-offline") {
 				const newUserOffline = payload.data.username;
-				console.log(`${newUserOffline} left the realm!`);
 				generalData.onlineUsers = removeUserFromList(newUserOffline, generalData.onlineUsers!);
 				if (userData.activePrivateChat === newUserOffline) {
 					userData.activePrivateChat = "Global Chat";
@@ -994,14 +987,12 @@ export function wireIncomingChat(
 
 			if (payload && payload.type == "block") {
 				const blockedUser = payload.data.username;
-				console.log(`${userData.username} blocked ${blockedUser}`);
 				userData.blockedUsers = addUserToList(blockedUser, userData.blockedUsers);
 				renderOnlineUsers(friendList, chatMessages, chatHeader);
 			}
 
 			if (payload && payload.type == "unblock") {
 				const unblockedUser = payload.data.username;
-				console.log(`${userData.username} unblocked ${unblockedUser}`);
 				userData.blockedUsers = removeUserFromList(unblockedUser, userData.blockedUsers!);
 				renderOnlineUsers(friendList, chatMessages, chatHeader);
 			}

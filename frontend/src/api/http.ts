@@ -169,7 +169,6 @@ export async function fetchTournamentList(): Promise<Tournament[]> {
 	}
 
 	const body = await res.json();
-	console.log("OPEN TOURNAMENT LIST:", body);
 	return (body.data as Tournament[]) ?? [];
 }
 

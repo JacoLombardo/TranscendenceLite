@@ -57,7 +57,6 @@ export default async function userManagementRoutes(fastify: FastifyInstance) {
 			const secureFromRequest = isSecureContext(request);
 			const secureFromEnv = process.env.NODE_ENV === "production";
 			const secure = secureFromRequest || secureFromEnv;
-			console.log("[AUTH] register: x-forwarded-proto=", request.headers["x-forwarded-proto"], "NODE_ENV=", process.env.NODE_ENV, "secure=", secure, "(fromRequest=", secureFromRequest, "fromEnv=", secureFromEnv, ")");
 			reply.header("Set-Cookie", makeSessionCookie(token, { secure, maxAgeSec }));
 			// Return token in body so frontend can use Bearer auth when cookies are blocked (cross-origin)
 			return reply.code(200).send({ success: true, message: "Registration successful", token });
@@ -87,7 +86,6 @@ export default async function userManagementRoutes(fastify: FastifyInstance) {
 		const secureFromRequest = isSecureContext(request);
 		const secureFromEnv = process.env.NODE_ENV === "production";
 		const secure = secureFromRequest || secureFromEnv;
-		console.log("[AUTH] login: x-forwarded-proto=", request.headers["x-forwarded-proto"], "NODE_ENV=", process.env.NODE_ENV, "secure=", secure, "(fromRequest=", secureFromRequest, "fromEnv=", secureFromEnv, ")");
 		reply.header("Set-Cookie", makeSessionCookie(token, { secure, maxAgeSec }));
 		// Return token in body so frontend can use Bearer auth when cookies are blocked (cross-origin)
 		return reply.code(200).send({ success: true, message: "Login successful", token });

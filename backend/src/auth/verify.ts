@@ -9,13 +9,9 @@ export function authenticateWebSocket(request: any, socket: any) {
 		const url = new URL(request.url, "http://x");
 		token = url.searchParams.get("token") ?? undefined;
 	}
-	if (!token) {
-		console.log("[WS] Unauthorized user");
-		return null;
-	}
+	if (!token) return null;
 	const payload = verifySessionToken(token);
 	if (!payload) {
-		console.log("[WS] Unauthorized user");
 		try {
 			socket.close(4401, "Unauthorized");
 		} catch {}
@@ -41,33 +37,15 @@ export function authenticateRequest(
 	request: FastifyRequest,
 	reply: FastifyReply
 ) {
-	const cookieHeader = request.headers.cookie;
-	const hasCookieHeader = cookieHeader !== undefined && cookieHeader !== "";
-	const authHeader = request.headers.authorization;
-	const hasBearer = typeof authHeader === "string" && authHeader.startsWith("Bearer ");
-	console.log(
-		"[AUTH] authenticateRequest: Cookie present?",
-		hasCookieHeader,
-		"Bearer present?",
-		hasBearer
-	);
-
 	const token = getTokenFromRequest(request);
 	if (!token) {
 		clearSessionCookie(reply, request);
-		console.log(
-			"[AUTH] authenticateRequest: no sid cookie and no Bearer token -> Unauthorized"
-		);
 		return null;
 	}
-
-	// Verify the session token
 	const payload = verifySessionToken(token);
 	if (!payload) {
 		clearSessionCookie(reply, request);
-		console.log("[AUTH] authenticateRequest: token verification failed -> Unauthorized");
 		return null;
 	}
-	console.log("[AUTH] authenticateRequest: OK user=", payload.username);
 	return payload;
 }

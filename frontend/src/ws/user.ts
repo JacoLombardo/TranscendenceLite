@@ -4,7 +4,6 @@ import { WS_HOST, WS_PORT, WS_PROTOCOL } from "../config/endpoints";
 
 export function connectToUserWS(username: string) {
 	if (userData.userSock && userData.userSock.readyState === WebSocket.OPEN) {
-		console.log("[USER WS] Already connected. Skipping reconnect.");
 		return () => {};
 	}
 
@@ -14,9 +13,7 @@ export function connectToUserWS(username: string) {
 
 	const ws = new WebSocket(wsUrl);
 
-	ws.addEventListener("open", () => {
-		console.log("[USER WS] Connected");
-	});
+	ws.addEventListener("open", () => {});
 
 	userData.userSock = ws;
 	userData.username = username;
@@ -34,11 +31,7 @@ export function connectToUserWS(username: string) {
 		}
 	});
 
-	ws.addEventListener("close", () => {
-		console.log("[USER WS] Disconnected.");
-		//OLD
-		//setTimeout(() => connectToUserWS(username), 1000);
-	});
+	ws.addEventListener("close", () => {});
 
 	ws.addEventListener("error", () => {}); // error logic will be implemented
 

@@ -79,14 +79,8 @@ export default async function userRoutes(fastify: FastifyInstance) {
 
 	// RETURN the current logged-in user, based on the session cookie
 	fastify.get("/api/user/me", async (request: FastifyRequest, reply: FastifyReply) => {
-		const co = request.headers.cookie;
-		console.log("[AUTH] GET /api/user/me: origin=", request.headers.origin, "Cookie header present? ", !!co, "length=", typeof co === "string" ? co.length : 0);
-		// Check if cookies are valid
 		const payload = authenticateRequest(request, reply);
-		if (!payload) {
-			console.log("[AUTH] GET /api/user/me: returning 401 Unauthorized");
-			return reply.code(401).send({ success: false, message: "Unauthorized" });
-		}
+		if (!payload) return reply.code(401).send({ success: false, message: "Unauthorized" });
 
 		// Look up the user by username in the database
 		try {

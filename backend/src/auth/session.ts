@@ -22,9 +22,6 @@ export function isSecureContext(request?: FastifyRequest): boolean {
 // In development, a default value is used so things work locally.
 const SESSION_SECRET =
 	process.env.SESSION_SECRET || "dev-session-secret-change-me";
-if (!process.env.SESSION_SECRET) {
-	console.log("[AUTH] SESSION_SECRET not set in env, using default (OK for dev only)");
-}
 
 // Convert bytes to base64-url format
 // Used to make the token compact and safe to put in a cookie.
@@ -68,32 +65,16 @@ export function createSessionToken(
 export function verifySessionToken(
 	token: string | undefined
 ): SessionPayload | null {
-	if (!token || typeof token !== "string") {
-		console.log("[AUTH] verifySessionToken: no token or not a string");
-		return null;
-	}
+	if (!token || typeof token !== "string") return null;
 	const dot = token.lastIndexOf(".");
-	if (dot === -1) {
-		console.log("[AUTH] verifySessionToken: token has no dot (invalid format)");
-		return null;
-	}
+	if (dot === -1) return null;
 	const payloadB64 = token.slice(0, dot);
 	const sig = token.slice(dot + 1);
 	const expected = hmacSHA256(payloadB64, SESSION_SECRET);
 	const sigBuf = Buffer.from(sig);
 	const expectedBuf = Buffer.from(expected);
-	if (sigBuf.length !== expectedBuf.length) {
-		console.log(
-			"[AUTH] verifySessionToken: signature length mismatch (possible wrong SESSION_SECRET or corrupted token)"
-		);
-		return null;
-	}
-	if (!crypto.timingSafeEqual(sigBuf, expectedBuf)) {
-		console.log(
-			"[AUTH] verifySessionToken: signature invalid (wrong SESSION_SECRET or token tampered)"
-		);
-		return null;
-	}
+	if (sigBuf.length !== expectedBuf.length) return null;
+	if (!crypto.timingSafeEqual(sigBuf, expectedBuf)) return null;
 	try {
 		const json = Buffer.from(
 			payloadB64.replace(/-/g, "+").replace(/_/g, "/"),
@@ -101,19 +82,10 @@ export function verifySessionToken(
 		).toString("utf8");
 		const payload = JSON.parse(json) as SessionPayload;
 		const nowSec = Math.floor(Date.now() / 1000);
-		if (!payload?.username || typeof payload.exp !== "number") {
-			console.log("[AUTH] verifySessionToken: payload missing username or exp");
-			return null;
-		}
-		if (payload.exp <= nowSec) {
-			console.log(
-				`[AUTH] verifySessionToken: token expired (exp=${payload.exp} now=${nowSec})`
-			);
-			return null;
-		}
+		if (!payload?.username || typeof payload.exp !== "number") return null;
+		if (payload.exp <= nowSec) return null;
 		return payload;
-	} catch (e) {
-		console.log("[AUTH] verifySessionToken: decode/parse failed", String(e));
+	} catch {
 		return null;
 	}
 }

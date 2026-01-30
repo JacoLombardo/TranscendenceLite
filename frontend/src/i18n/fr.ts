@@ -92,11 +92,27 @@ export default {
     passwordTooShort: "Le mot de passe doit contenir au moins 4 caractères.",
     saved: "Enregistré !",
     updateFailed: "Échec de la mise à jour.",
+    avatarUpdated: "Avatar mis à jour.",
+    statsLoadFailed: "Échec du chargement des statistiques.",
     friends: "Amis",
-    noFriends: "Aucun ami ajouté."
+    noFriends: "Aucun ami ajouté.",
+    stats: "Statistiques",
+    singleGames: "Parties simples",
+    tournaments: "Tournois",
+    date: "Date",
+    name: "Nom",
+    adversary: "Adversaire",
+    winner: "Gagnant",
+    mode: "Mode",
+    notes: "Notes",
+    userPlacement: "Placement",
+    round: "Round",
+    placementRange: "Plage de placement",
+    noSingleGames: "Aucune partie simple jouée.",
+    noTournaments: "Aucun tournoi joué.",
   },
-  
-    gameOver: {
+
+  gameOver: {
     leftWins: "Le joueur gauche gagne !",
     rightWins: "Le joueur droit gagne !",
     refresh: "Match terminé",

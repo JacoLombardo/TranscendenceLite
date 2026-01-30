@@ -66,6 +66,7 @@ export default {
 
 	auth: {
 		Pong: "PONG",
+		welcome: "Welcome Challenger",
 		login: "Login",
 		register: "Register",
 		username: "Username",
@@ -93,6 +94,8 @@ export default {
 		passwordTooShort: "Password must be at least 4 characters.",
 		saved: "Saved!",
 		updateFailed: "Update failed.",
+		avatarUpdated: "Avatar updated.",
+		statsLoadFailed: "Failed to load stats.",
 		friends: "Friends",
 		noFriends: "No friends added.",
 		stats: "Stats",
@@ -106,7 +109,7 @@ export default {
 		notes: "Notes",
 		userPlacement: "User Placement",
 		round: "Round",
-		placementRange: "Placemente Range",
+		placementRange: "Placement Range",
 		noSingleGames: "No single games were played so far.",
 		noTournaments: "No tournaments were played so far.",
 	},

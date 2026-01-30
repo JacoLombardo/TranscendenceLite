@@ -121,7 +121,6 @@ export async function renderOnlineLobby(container: HTMLElement) {
 	const interval = setInterval(() => refreshList(list), 2000);
 
 	function setupLobbySocket() {
-		console.log("Lobby WS: TODO");
 	}
 
 	setupLobbySocket();

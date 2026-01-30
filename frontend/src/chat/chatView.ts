@@ -165,8 +165,7 @@ export async function initChat(root: HTMLElement = document.body, skipFetch: boo
 		await fetchUserData();
 		await fetchAllUsers();
 		await fetchOnlineUsers();
-		if (!userData.chatHistory || !userData.blockedUsers || !userData.friends)
-			console.log("[CHAT] Error retrieving user data");
+		if (!userData.chatHistory || !userData.blockedUsers || !userData.friends) {}
 	}
 
 	// LIVE CHAT /////////////////////////////////////////////////////////////////
