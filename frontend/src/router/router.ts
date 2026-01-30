@@ -1,5 +1,6 @@
 // src/router/router.ts
 import { fetchMe, setAuthToken } from "../api/http";
+import { updateTopBar } from "../views/topbar/ui";
 
 export type View = (
   container: HTMLElement,
@@ -83,6 +84,8 @@ async function render() {
         } else {
           location.hash = hash;
         }
+        // Refresh topbar (Profile, logout) and open user WebSocket so we appear online
+        await updateTopBar();
       }
     }
 
