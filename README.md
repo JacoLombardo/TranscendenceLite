@@ -1,6 +1,6 @@
-# Transcendence
+# TranscendenceLite
 
-**Deployed version of 42 Transcendence.** The app runs with the frontend on Vercel and the backend on Fly.io. Auth uses a Bearer token (returned on login/register and sent in the `Authorization` header) when third-party cookies are blocked; otherwise behaviour matches the original project. 
+**Disclaimer: This is the deployed version of 42 Transcendence.** The app runs with the frontend on Vercel and the backend on Fly.io. Auth uses a Bearer token (returned on login/register and sent in the `Authorization` header) when third-party cookies are blocked; otherwise behaviour matches the original project. 
 
 To check the original project: https://github.com/JacoLombardo/42_ft_transcendence.
 
